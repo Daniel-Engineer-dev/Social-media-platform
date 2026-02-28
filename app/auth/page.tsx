@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { signIn } from "next-auth/react"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import {
   Eye,
   EyeOff,
@@ -19,15 +19,27 @@ import {
   Github,
   Chrome,
   AlertCircle,
-} from "lucide-react"
+} from "lucide-react";
 
 export default function AuthPage() {
-  const router = useRouter()
-  const [isLogin, setIsLogin] = useState(true)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [isLogin, setIsLogin] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const handleOAuthSignIn = async (provider: "google" | "github") => {
+    setError("");
+    setOauthLoading(provider);
+    try {
+      await signIn(provider, { callbackUrl: "/" });
+    } catch {
+      setError("Đăng nhập bằng " + (provider === "google" ? "Google" : "GitHub") + " thất bại");
+      setOauthLoading(null);
+    }
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -35,12 +47,12 @@ export default function AuthPage() {
     email: "",
     password: "",
     confirmPassword: "",
-  })
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
     try {
       if (isLogin) {
@@ -49,29 +61,34 @@ export default function AuthPage() {
           email: formData.email,
           password: formData.password,
           redirect: false,
-        })
+        });
 
         if (result?.error) {
-          setError(result.error)
-          setIsLoading(false)
-          return
+          if (result.code === "credentials") {
+            setError("Email hoặc mật khẩu không chính xác");
+          } else {
+            setError("Tài khoản chưa tồn tại. Vui lòng đăng ký!");
+          }
+
+          setIsLoading(false);
+          return;
         }
 
-        router.push("/")
-        router.refresh()
+        router.push("/");
+        router.refresh();
       } else {
         // === REGISTER ===
         // Validate passwords match
         if (formData.password !== formData.confirmPassword) {
-          setError("Mật khẩu xác nhận không khớp")
-          setIsLoading(false)
-          return
+          setError("Mật khẩu xác nhận không khớp");
+          setIsLoading(false);
+          return;
         }
 
         if (formData.password.length < 6) {
-          setError("Mật khẩu phải có ít nhất 6 ký tự")
-          setIsLoading(false)
-          return
+          setError("Mật khẩu phải có ít nhất 6 ký tự");
+          setIsLoading(false);
+          return;
         }
 
         // Register
@@ -83,14 +100,14 @@ export default function AuthPage() {
             email: formData.email,
             password: formData.password,
           }),
-        })
+        });
 
-        const registerData = await registerRes.json()
+        const registerData = await registerRes.json();
 
         if (!registerRes.ok) {
-          setError(registerData.error || "Đăng ký thất bại")
-          setIsLoading(false)
-          return
+          setError(registerData.error || "Đăng ký thất bại");
+          setIsLoading(false);
+          return;
         }
 
         // Auto login after register
@@ -98,28 +115,30 @@ export default function AuthPage() {
           email: formData.email,
           password: formData.password,
           redirect: false,
-        })
+        });
 
         if (loginResult?.error) {
-          setError("Đăng ký thành công nhưng đăng nhập thất bại. Vui lòng đăng nhập lại.")
-          setIsLogin(true)
-          setIsLoading(false)
-          return
+          setError(
+            "Đăng ký thành công nhưng đăng nhập thất bại. Vui lòng đăng nhập lại.",
+          );
+          setIsLogin(true);
+          setIsLoading(false);
+          return;
         }
 
-        router.push("/")
-        router.refresh()
+        router.push("/");
+        router.refresh();
       }
     } catch {
-      setError("Đã xảy ra lỗi kết nối, vui lòng thử lại")
-      setIsLoading(false)
+      setError("Đã xảy ra lỗi kết nối, vui lòng thử lại");
+      setIsLoading(false);
     }
-  }
+  };
 
   const updateField = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-    if (error) setError("")
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (error) setError("");
+  };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
@@ -166,7 +185,8 @@ export default function AuthPage() {
               </span>
             </div>
             <p className="mt-6 text-lg leading-relaxed text-primary-foreground/80">
-              Kết nối, chia sẻ và khám phá cùng cộng đồng. Nơi mọi khoảnh khắc đều đáng nhớ.
+              Kết nối, chia sẻ và khám phá cùng cộng đồng. Nơi mọi khoảnh khắc
+              đều đáng nhớ.
             </p>
           </div>
 
@@ -242,16 +262,28 @@ export default function AuthPage() {
               variant="outline"
               className="flex-1 gap-2 rounded-xl border-border py-5 transition-all hover:border-emerald-500/40 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
               type="button"
+              onClick={() => handleOAuthSignIn("google")}
+              disabled={oauthLoading !== null || isLoading}
             >
-              <Chrome className="h-4 w-4" />
+              {oauthLoading === "google" ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
+              ) : (
+                <Chrome className="h-4 w-4" />
+              )}
               <span className="text-sm font-medium">Google</span>
             </Button>
             <Button
               variant="outline"
               className="flex-1 gap-2 rounded-xl border-border py-5 transition-all hover:border-blue-500/40 hover:bg-blue-50 hover:text-blue-800 dark:hover:bg-blue-950/30 dark:hover:text-blue-400"
               type="button"
+              onClick={() => handleOAuthSignIn("github")}
+              disabled={oauthLoading !== null || isLoading}
             >
-              <Github className="h-4 w-4" />
+              {oauthLoading === "github" ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
+              ) : (
+                <Github className="h-4 w-4" />
+              )}
               <span className="text-sm font-medium">GitHub</span>
             </Button>
           </div>
@@ -273,12 +305,15 @@ export default function AuthPage() {
                 "grid transition-all duration-300 ease-in-out",
                 isLogin
                   ? "grid-rows-[0fr] opacity-0"
-                  : "grid-rows-[1fr] opacity-100"
+                  : "grid-rows-[1fr] opacity-100",
               )}
             >
               <div className="overflow-hidden">
                 <div className="space-y-2 pb-4">
-                  <Label htmlFor="name" className="text-sm font-medium text-foreground">
+                  <Label
+                    htmlFor="name"
+                    className="text-sm font-medium text-foreground"
+                  >
                     Họ và tên
                   </Label>
                   <div className="relative">
@@ -298,7 +333,10 @@ export default function AuthPage() {
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-foreground">
+              <Label
+                htmlFor="email"
+                className="text-sm font-medium text-foreground"
+              >
                 Email
               </Label>
               <div className="relative">
@@ -318,7 +356,10 @@ export default function AuthPage() {
             {/* Password */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                <Label
+                  htmlFor="password"
+                  className="text-sm font-medium text-foreground"
+                >
                   Mật khẩu
                 </Label>
                 {isLogin && (
@@ -361,12 +402,15 @@ export default function AuthPage() {
                 "grid transition-all duration-300 ease-in-out",
                 isLogin
                   ? "grid-rows-[0fr] opacity-0"
-                  : "grid-rows-[1fr] opacity-100"
+                  : "grid-rows-[1fr] opacity-100",
               )}
             >
               <div className="overflow-hidden">
                 <div className="space-y-2 pb-1">
-                  <Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
+                  <Label
+                    htmlFor="confirmPassword"
+                    className="text-sm font-medium text-foreground"
+                  >
                     Xác nhận mật khẩu
                   </Label>
                   <div className="relative">
@@ -376,13 +420,17 @@ export default function AuthPage() {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="••••••••"
                       value={formData.confirmPassword}
-                      onChange={(e) => updateField("confirmPassword", e.target.value)}
+                      onChange={(e) =>
+                        updateField("confirmPassword", e.target.value)
+                      }
                       className="rounded-xl border-border bg-secondary/50 py-5 pl-10 pr-10 text-sm placeholder:text-muted-foreground/60 focus:border-primary focus:bg-background"
                       tabIndex={isLogin ? -1 : 0}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                       tabIndex={isLogin ? -1 : 0}
                     >
@@ -420,11 +468,16 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={() => {
-                setIsLogin(!isLogin)
-                setFormData({ name: "", email: "", password: "", confirmPassword: "" })
-                setShowPassword(false)
-                setShowConfirmPassword(false)
-                setError("")
+                setIsLogin(!isLogin);
+                setFormData({
+                  name: "",
+                  email: "",
+                  password: "",
+                  confirmPassword: "",
+                });
+                setShowPassword(false);
+                setShowConfirmPassword(false);
+                setError("");
               }}
               className="font-semibold text-primary transition-colors hover:text-primary/80"
             >
@@ -436,14 +489,18 @@ export default function AuthPage() {
           {!isLogin && (
             <p className="mt-4 text-center text-[11px] leading-relaxed text-muted-foreground/70">
               Bằng cách đăng ký, bạn đồng ý với{" "}
-              <span className="text-primary cursor-pointer hover:underline">Điều khoản dịch vụ</span>{" "}
+              <span className="text-primary cursor-pointer hover:underline">
+                Điều khoản dịch vụ
+              </span>{" "}
               và{" "}
-              <span className="text-primary cursor-pointer hover:underline">Chính sách bảo mật</span>{" "}
+              <span className="text-primary cursor-pointer hover:underline">
+                Chính sách bảo mật
+              </span>{" "}
               của chúng tôi.
             </p>
           )}
         </div>
       </div>
     </div>
-  )
+  );
 }

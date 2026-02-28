@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
+import { signOut, useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -15,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { currentUser } from "@/lib/mock-data"
+
 import {
   Home,
   Search,
@@ -31,6 +32,7 @@ import {
   Moon,
   Monitor,
   Check,
+  LogOut,
 } from "lucide-react"
 import Image from "next/image"
 
@@ -42,13 +44,30 @@ const navItems = [
   { href: "/bookmarks", label: "Bookmarks", icon: Bookmark },
   { href: "/trending", label: "Trending", icon: TrendingUp },
   { href: "/threels", label: "Threel", icon: Clapperboard },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/profile", label: "Profile", icon: User, dynamic: true },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
+  const { data: session } = useSession()
   const [isExpanded, setIsExpanded] = useState(false)
+  const [userData, setUserData] = useState<{ name: string; username: string; avatar_url: string } | null>(null)
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetch("/api/profile/me")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.username) setUserData(data)
+        })
+        .catch(() => {})
+    }
+  }, [session?.user?.id])
+
+  const displayName = userData?.name || session?.user?.name || "User"
+  const displayUsername = userData?.username || "user"
+  const displayAvatar = userData?.avatar_url || session?.user?.image || "/images/default-avatar.jpg"
 
   return (
     <aside
@@ -78,11 +97,12 @@ export function AppSidebar() {
       {/* Navigation */}
       <nav className="flex flex-1 flex-col gap-1 w-full">
         {navItems.map((item) => {
-          const isActive = pathname === item.href
+          const href = item.dynamic && userData ? `/profile/${userData.username}` : item.href
+          const isActive = item.dynamic ? pathname.startsWith("/profile") : pathname === item.href
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={href}
               title={!isExpanded ? item.label : undefined}
               className={cn(
                 "relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors w-full",
@@ -142,8 +162,8 @@ export function AppSidebar() {
         <DropdownMenuTrigger asChild>
           <button className="flex w-full items-center gap-3 rounded-xl p-3 transition-colors hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Avatar className="h-9 w-9 shrink-0">
-              <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-              <AvatarFallback>{currentUser.name[0]}</AvatarFallback>
+              <AvatarImage src={displayAvatar} alt={displayName} />
+              <AvatarFallback>{displayName[0]}</AvatarFallback>
             </Avatar>
             <div
               className={cn(
@@ -151,8 +171,8 @@ export function AppSidebar() {
                 isExpanded ? "opacity-100 block" : "opacity-0 hidden"
               )}
             >
-              <p className="truncate text-sm font-semibold text-foreground text-left">{currentUser.name}</p>
-              <p className="truncate text-xs text-muted-foreground text-left">@{currentUser.username}</p>
+              <p className="truncate text-sm font-semibold text-foreground text-left">{displayName}</p>
+              <p className="truncate text-xs text-muted-foreground text-left">@{displayUsername}</p>
             </div>
             <Settings
               className={cn(
@@ -186,6 +206,14 @@ export function AppSidebar() {
               System
             </span>
             {theme === "system" && <Check className="h-4 w-4 text-primary" />}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => signOut({ redirectTo: "/auth" })}
+            className="flex items-center gap-2 text-destructive focus:text-destructive"
+          >
+            <LogOut className="h-4 w-4" />
+            Đăng xuất
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
